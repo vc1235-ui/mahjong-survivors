@@ -1,0 +1,1945 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="data:," />
+    <title>日麻版吸血鬼幸存者</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    <style>
+      :root{
+        --felt:#0d3527;
+        --ink:#f3ead8;
+        --ink-dim:#c9bfa8;
+        --gold:#e8c15a;
+        --red:#e05a4e;
+        --panel:rgba(8,24,18,.92);
+        --panel-line:rgba(232,193,90,.35);
+        --ivory:#f8f3e3;
+      }
+      *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+      html,body{ height:100%; }
+      body{
+        margin:0; overflow:hidden; background:#051a13; color:var(--ink);
+        font-family:"Noto Sans SC",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+        touch-action:none; user-select:none; -webkit-user-select:none;
+        display:flex; flex-direction:column; height:100dvh;
+      }
+      /* ---------- 三段布局：上信息 / 中方形地图 / 下手牌（摇杆浮动） ---------- */
+      #topBar{
+        flex:none; z-index:5;
+        background:#0a2a20; border-bottom:1px solid var(--panel-line);
+        padding-top:env(safe-area-inset-top);
+      }
+      #stageWrap{
+        flex:1 1 auto; min-height:0; width:100%;
+        display:flex; align-items:center; justify-content:center;
+        background:#051a13; padding:6px;
+      }
+      #stage{
+        position:relative; flex:none;
+        border:2px solid rgba(232,193,90,.55); border-radius:8px;
+        box-shadow:0 10px 34px rgba(0,0,0,.55);
+        overflow:hidden; background:#0d3527;
+      }
+      #game{ position:absolute; inset:0; display:block; width:100%; height:100%; }
+      #bottomBar{
+        flex:none; z-index:5;
+        display:flex; align-items:stretch; gap:6px;
+        background:#0a2a20; border-top:1px solid var(--panel-line);
+        padding:6px 8px calc(8px + env(safe-area-inset-bottom));
+      }
+
+      /* ---------- HUD ---------- */
+      #hud{
+        display:flex; align-items:flex-start; gap:10px;
+        padding:8px 12px;
+        pointer-events:none;
+      }
+      .hud-left{ min-width:0; flex:0 1 340px; }
+      .bar-row{ display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+      .bar-label{ font-size:11px; font-weight:700; letter-spacing:.08em; color:var(--ink-dim); width:26px; flex:none; }
+      .bar{
+        flex:1; height:14px; border-radius:3px; overflow:hidden;
+        background:rgba(0,0,0,.55); border:1px solid rgba(243,234,216,.25);
+      }
+      .bar > i{ display:block; height:100%; width:100%; transition:width .15s ease; }
+      #hpFill{ background:linear-gradient(90deg,#c93b31,#e05a4e); }
+      #xpFill{ background:linear-gradient(90deg,#1f8a70,#35c08d); }
+      .bar-num{ font-size:11px; font-weight:700; color:var(--ink); min-width:64px; flex:none; font-variant-numeric:tabular-nums; }
+      #lvBadge{
+        display:inline-block; margin-top:1px; padding:2px 9px; border-radius:3px;
+        background:var(--gold); color:#231a04; font-size:12px; font-weight:900;
+      }
+      #killBadge{ font-size:12px; color:var(--ink-dim); margin-left:8px; font-variant-numeric:tabular-nums; }
+      .hud-center{ flex:1; display:flex; justify-content:center; padding-top:2px; }
+      #objective{
+        max-width:min(520px,92vw); text-align:center;
+        background:var(--panel); border:1px solid var(--panel-line); border-radius:6px;
+        padding:7px 14px; font-size:13px; line-height:1.45;
+      }
+      #objective b{ color:var(--gold); }
+      #objective .tenpai{ color:#ff9d5c; font-weight:900; }
+      .hud-right{ flex:0 0 auto; text-align:right; }
+      #timer{ font-size:20px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.1; }
+      .hud-btns{ margin-top:5px; display:flex; gap:6px; justify-content:flex-end; pointer-events:auto; }
+      .hud-btns button{
+        appearance:none; border:1px solid rgba(243,234,216,.35); background:rgba(0,0,0,.45);
+        color:var(--ink); font:inherit; font-size:12px; font-weight:700;
+        padding:5px 10px; border-radius:4px; cursor:pointer;
+      }
+      .hud-btns button:active{ transform:translateY(1px); }
+
+      /* ---------- Hand tray（底部区域，占满整宽） ---------- */
+      #handWrap{
+        flex:1 1 auto; min-width:0;
+        padding:2px 2px 0;
+        display:flex; flex-direction:column; align-items:center; gap:4px;
+        pointer-events:none;
+      }
+      #handHint{ font-size:12.5px; color:var(--ink-dim); text-shadow:0 1px 3px #000; line-height:1.5; text-align:center; }
+      #handHint b{ color:var(--gold); }
+      #hand{
+        display:flex; gap:4px; align-items:flex-end; pointer-events:auto;
+        max-width:100vw; padding:10px 2px 2px;
+        flex-wrap:wrap; justify-content:center;
+      }
+      .htile{
+        width:clamp(44px,11.5vw,58px); aspect-ratio:3/4.1; flex:none;
+        background:linear-gradient(180deg,#fffdf4,var(--ivory) 55%,#e7dfc6);
+        border:1px solid #b9ac84; border-bottom:4px solid #cbbd92; border-radius:5px;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        cursor:pointer; position:relative; color:#26221a;
+        box-shadow:0 2px 5px rgba(0,0,0,.45);
+        transition:transform .08s ease;
+      }
+      .htile:hover{ transform:translateY(-6px); }
+      .htile .n{ font-size:min(23px,5.8vw); font-weight:900; line-height:1; }
+      .htile .s{ font-size:min(16px,4.2vw); font-weight:900; line-height:1.15; }
+      .htile .h{ font-size:min(25px,6.4vw); font-weight:900; line-height:1; }
+      /* tiles that can declare chi / pon / kan */
+      .htile.can-meld{
+        border-color:var(--gold); border-bottom-color:#c39a2e;
+        box-shadow:0 0 0 2px rgba(232,193,90,.55), 0 2px 8px rgba(0,0,0,.45);
+        animation:meldPulse 1.1s ease-in-out infinite alternate;
+      }
+      @keyframes meldPulse{
+        from{ box-shadow:0 0 0 1px rgba(232,193,90,.35), 0 2px 8px rgba(0,0,0,.45); }
+        to{ box-shadow:0 0 0 3px rgba(232,193,90,.75), 0 2px 8px rgba(0,0,0,.45); }
+      }
+      @media (prefers-reduced-motion: reduce){ .htile.can-meld{ animation:none; } }
+      .meld-badge{
+        position:absolute; top:-10px; left:50%; transform:translateX(-50%);
+        background:var(--gold); color:#231a04; font-size:11px; font-weight:900;
+        padding:1px 7px; border-radius:3px; line-height:1.5; white-space:nowrap;
+        box-shadow:0 1px 4px rgba(0,0,0,.5); z-index:2;
+      }
+      .htile.meld-kan .meld-badge, .htile.meld-kakan .meld-badge{ background:var(--red); color:#fff; }
+      .tile-x{
+        position:absolute; top:-9px; right:-7px; z-index:3;
+        width:22px; height:22px; border-radius:50%;
+        border:1px solid rgba(255,255,255,.65); background:rgba(20,16,10,.88);
+        color:#fff; font-size:14px; font-weight:900; line-height:1;
+        display:flex; align-items:center; justify-content:center;
+        cursor:pointer; padding:0; appearance:none;
+      }
+      .tile-x:active{ background:var(--red); }
+      /* locked melds：缩小放在地图右下角 */
+      #meldsCorner{
+        position:absolute; right:6px; bottom:6px; z-index:4;
+        pointer-events:none; max-width:62%;
+      }
+      #meldsCorner:empty{ display:none; }
+      #melds{
+        display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; align-items:center;
+      }
+      .meld-group{
+        display:flex; gap:1.5px; align-items:center;
+        background:rgba(4,18,13,.78); border:1px solid var(--panel-line); border-radius:5px;
+        padding:3px 4px;
+      }
+      .meld-group .mlabel{ font-size:10px; font-weight:900; color:var(--gold); margin-right:2px; letter-spacing:.06em; }
+      .meld-group.kan .mlabel{ color:#ff9d8a; }
+      .meld-group.can-kakan{
+        pointer-events:auto; cursor:pointer; border-color:var(--gold);
+        box-shadow:0 0 0 1.5px rgba(232,193,90,.6);
+      }
+      .kakan-btn{
+        margin-left:3px; background:var(--red); color:#fff;
+        font-size:10px; font-weight:900; padding:1px 6px; border-radius:3px; line-height:1.6;
+      }
+      .htile.mtile{
+        width:clamp(19px,5vw,25px); cursor:default;
+        border-bottom-width:2px; border-radius:3px;
+      }
+      .meld-group.can-kakan .htile.mtile{ cursor:pointer; }
+      .htile.mtile:hover{ transform:none; }
+      .htile.mtile .n{ font-size:11px; }
+      .htile.mtile .s{ font-size:8.5px; }
+      .htile.mtile .h{ font-size:12px; }
+      .htile.meld-win{ border-color:var(--gold); box-shadow:0 0 0 2px rgba(232,193,90,.5); }
+      .htile.man .s{ color:#c22f2f; } .htile.man .n{ color:#2b2b2b; }
+      .htile.pin .n,.htile.pin .s{ color:#1d5fae; }
+      .htile.sou .n,.htile.sou .s{ color:#1e7a3c; }
+      .htile.hon .h{ color:#26303a; }
+      .htile.hon.h-red .h{ color:#c22f2f; }
+      .htile.hon.h-green .h{ color:#1e7a3c; }
+      .htile.hon.h-blue .h{ color:#1d5fae; }
+      #handEmpty{ font-size:13px; color:var(--ink-dim); padding:10px 0 14px; text-shadow:0 1px 3px #000; }
+
+      /* ---------- Overlays ---------- */
+      .overlay{
+        position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center;
+        background:rgba(4,16,12,.72); backdrop-filter:blur(3px); padding:16px;
+      }
+      .overlay[hidden]{ display:none; }
+      .panel{
+        width:min(560px,94vw); max-height:92dvh; overflow:auto;
+        background:var(--panel); border:1px solid var(--panel-line); border-radius:10px;
+        padding:26px 26px 22px; text-align:center;
+        box-shadow:0 18px 60px rgba(0,0,0,.6);
+      }
+      .panel h1{
+        font-family:"Ma Shan Zheng","Noto Sans SC",serif;
+        font-size:clamp(34px,7vw,52px); margin:0 0 2px; color:var(--ink); letter-spacing:.04em;
+      }
+      .panel h1 .accent{ color:var(--red); }
+      .panel h2{ font-size:clamp(24px,5vw,34px); margin:0 0 6px; font-weight:900; }
+      .panel .sub{ color:var(--gold); font-weight:700; letter-spacing:.35em; font-size:12px; margin-bottom:14px; }
+      .panel p{ color:var(--ink-dim); font-size:14px; line-height:1.75; margin:8px 0; }
+      .panel p b{ color:var(--ink); }
+      .rules{
+        text-align:left; margin:14px auto 4px; max-width:420px;
+        font-size:13.5px; line-height:1.9; color:var(--ink-dim);
+      }
+      .rules li{ margin:2px 0; }
+      .rules b{ color:var(--gold); }
+      .big-btn{
+        appearance:none; border:0; cursor:pointer; margin-top:18px;
+        background:var(--red); color:#fff; font:inherit; font-weight:900; font-size:17px;
+        padding:13px 42px; border-radius:6px; letter-spacing:.12em;
+        box-shadow:0 6px 0 #8f2a22, 0 12px 24px rgba(0,0,0,.45);
+      }
+      .big-btn:active{ transform:translateY(3px); box-shadow:0 3px 0 #8f2a22; }
+      .stats{
+        display:flex; justify-content:center; gap:26px; flex-wrap:wrap; margin:14px 0 2px;
+      }
+      .stats div{ text-align:center; }
+      .stats .v{ font-size:24px; font-weight:900; color:var(--gold); font-variant-numeric:tabular-nums; }
+      .stats .k{ font-size:11px; color:var(--ink-dim); letter-spacing:.15em; margin-top:2px; }
+      #winHand{ display:flex; gap:3px; justify-content:center; flex-wrap:wrap; margin:12px 0 2px; }
+      #winHand .htile{ cursor:default; }
+      #winHand .htile:hover{ transform:none; }
+
+      /* level-up choices */
+      .choices{ display:flex; gap:10px; margin-top:16px; }
+      .choice{
+        flex:1; appearance:none; cursor:pointer; text-align:center;
+        background:rgba(243,234,216,.06); border:1px solid rgba(243,234,216,.25); border-radius:8px;
+        color:var(--ink); font:inherit; padding:16px 10px 13px;
+      }
+      .choice:hover,.choice:active{ border-color:var(--gold); background:rgba(232,193,90,.12); }
+      .choice .ic{ font-size:28px; line-height:1; }
+      .choice .nm{ font-weight:900; font-size:15px; margin:8px 0 4px; }
+      .choice .ds{ font-size:12px; color:var(--ink-dim); line-height:1.5; }
+      /* character select */
+      .char-row{ display:flex; gap:10px; margin-top:6px; }
+      .char-card{
+        flex:1; appearance:none; cursor:pointer; text-align:center;
+        background:rgba(243,234,216,.05); border:1px solid rgba(243,234,216,.25); border-radius:8px;
+        color:var(--ink); font:inherit; padding:12px 8px 10px;
+      }
+      .char-card.sel{ border-color:var(--gold); background:rgba(232,193,90,.13); box-shadow:0 0 0 1.5px rgba(232,193,90,.5); }
+      .char-card .avatar{
+        width:44px; height:44px; margin:0 auto; border-radius:50%;
+        border:2.5px solid var(--gold); display:flex; align-items:center; justify-content:center;
+        font-size:21px; font-weight:900; color:#fff;
+      }
+      .char-card .nm{ font-weight:900; font-size:15px; margin:7px 0 1px; }
+      .char-card .ti{ font-size:11px; color:var(--gold); font-weight:700; letter-spacing:.1em; }
+      .char-card .ds{ font-size:11.5px; color:var(--ink-dim); line-height:1.55; margin-top:5px; }
+      @media (max-width:560px){ .char-row{ flex-direction:column; } }
+      #weaponBadge{ font-size:12px; color:var(--ink-dim); margin-left:8px; }
+      @media (max-width:560px){ .choices{ flex-direction:column; } }
+      @media (max-width:680px){
+        #hud{ flex-wrap:wrap; }
+        .hud-left{ flex:1 1 auto; }
+        .hud-center{ order:3; flex:1 1 100%; padding-top:6px; }
+        #objective{ width:100%; font-size:12px; padding:5px 10px; }
+        #timer{ font-size:16px; }
+        .bar-num{ min-width:52px; }
+      }
+
+      /* ---------- 浮动虚拟摇杆：按哪出哪 ---------- */
+      #joyFloat{
+        position:fixed; left:0; top:0; z-index:15;
+        width:118px; height:118px; margin:-59px 0 0 -59px;
+        border-radius:50%;
+        border:2px solid rgba(243,234,216,.45); background:rgba(0,0,0,.28);
+        box-shadow:0 4px 18px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,0,0,.25);
+        pointer-events:none; opacity:0; transform:scale(.9);
+        transition:opacity .12s ease, transform .12s ease;
+      }
+      #joyFloat.on{
+        opacity:1; transform:scale(1);
+        border-color:var(--gold); background:rgba(0,0,0,.35);
+      }
+      #joyKnobFloat{
+        position:absolute; left:50%; top:50%; width:50px; height:50px; border-radius:50%;
+        background:rgba(243,234,216,.62); transform:translate(-50%,-50%);
+        box-shadow:0 2px 8px rgba(0,0,0,.5);
+      }
+      @media (max-width:560px){
+        #joyFloat{ width:104px; height:104px; margin:-52px 0 0 -52px; }
+        #joyKnobFloat{ width:44px; height:44px; }
+      }
+
+      #toast{
+        position:absolute; left:50%; top:9%; transform:translateX(-50%); z-index:8;
+        background:rgba(0,0,0,.72); border:1px solid var(--panel-line); color:var(--ink);
+        padding:8px 18px; border-radius:6px; font-size:14px; font-weight:700;
+        opacity:0; transition:opacity .25s; pointer-events:none; white-space:nowrap;
+        max-width:94%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="topBar">
+    <div id="hud">
+      <div class="hud-left">
+        <div class="bar-row">
+          <span class="bar-label">生命</span>
+          <div class="bar"><i id="hpFill"></i></div>
+          <span class="bar-num" id="hpNum">100 / 100</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">经验</span>
+          <div class="bar"><i id="xpFill"></i></div>
+          <span class="bar-num" id="xpNum">Lv.1</span>
+        </div>
+        <div>
+          <span id="lvBadge">Lv.1</span><span id="killBadge">击破 0</span><span id="weaponBadge"></span>
+        </div>
+      </div>
+      <div class="hud-center">
+        <div id="objective">凑齐 <b>14 张</b>胡牌牌型即可通关</div>
+      </div>
+      <div class="hud-right">
+        <div id="timer">00:00</div>
+        <div class="hud-btns">
+          <button id="soundBtn" type="button">音效 开</button>
+          <button id="pauseBtn" type="button">暂停</button>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div id="stageWrap">
+      <div id="stage">
+        <canvas id="game"></canvas>
+        <div id="meldsCorner"><div id="melds"></div></div>
+        <div id="toast"></div>
+      </div>
+    </div>
+
+    <div id="joyFloat" aria-hidden="true"><div id="joyKnobFloat"></div></div>
+
+    <div id="bottomBar">
+      <div id="handWrap">
+        <div id="handHint">手牌 0 / 14</div>
+        <div id="hand"><div id="handEmpty">在地图上走动，踩到麻将牌即可摸牌</div></div>
+      </div>
+    </div>
+
+    <!-- Start -->
+    <div class="overlay" id="startOverlay">
+      <div class="panel">
+        <h1>日麻<span class="accent">幸存者</span></h1>
+        <div class="sub">麻 将 × 幸 存 者</div>
+        <p>你被困在一张巨大的麻将桌上。牌散落在地图各处，怪物一波比一波多——<b>凑齐一套能胡的牌（4 面子 + 1 雀头，共 14 张）</b>，就能破局通关。</p>
+        <ul class="rules">
+          <li><b>移动</b>：WASD / 方向键（手机：手指按住地图或下方空白处，浮动摇杆会出现在你按下的位置，拖动即可移动；松手消失）</li>
+          <li><b>攻击</b>：自动锁定最近的敌人，你只管走位</li>
+          <li><b>摸牌</b>：走过地上的麻将牌即可收入手牌</li>
+          <li><b>吃 / 碰</b>：手牌里凑齐顺子（三张连牌）或刻子（三张相同），那组牌会亮起金色标记，点一下那组牌即可声明，锁定成一个面子；已声明的面子会缩小显示在地图右下角</li>
+          <li><b>杠</b>：集齐四张相同的牌，点一下那组牌即可杠——四张算一个面子锁定，并自动从牌墙补一张牌；每杠一个，胡牌总数多一张（一个杠时共 15 张）</li>
+          <li><b>加杠</b>：已经碰过的牌，再摸到第 4 张相同的牌，点一下手里这张（带红色「加杠」标记）或点角落里那组碰牌，都能把它升级成杠，同样自动补一张牌</li>
+          <li><b>打牌</b>：点手牌右上角的 × 打出一张，打出的牌会化作重击砸向敌人（带金色标记的牌直接点是声明吃 / 碰 / 杠，要打出请点 ×）</li>
+          <li><b>升级</b>：捡经验宝石升级，三选一——新武器、武器升级，或爆炸 / 弹射 / 穿透 / 暴击 / 减速 / 吸血这类改变打法的机制强化</li>
+          <li><b>武器</b>：最多同时带 4 件武器，各自独立开火；每件可升到 Lv.5</li>
+          <li><b>精英怪</b>：金圈精英必掉一张牌，优先处理</li>
+        </ul>
+        <p style="margin-top:16px"><b>选一名角色开局</b>（各自带不同的初始武器和体质）</p>
+        <div class="char-row" id="charRow"></div>
+        <button class="big-btn" id="startBtn" type="button">开 局</button>
+      </div>
+    </div>
+
+    <!-- Level up -->
+    <div class="overlay" id="levelOverlay" hidden>
+      <div class="panel">
+        <h2>升级！选一项强化</h2>
+        <p>等级提升，怪物也会越来越强。</p>
+        <div class="choices" id="choices"></div>
+      </div>
+    </div>
+
+    <!-- Win -->
+    <div class="overlay" id="winOverlay" hidden>
+      <div class="panel">
+        <h2 style="color:var(--gold)">🎉 胡了！通关</h2>
+        <p id="winText">你凑齐了一套胡牌牌型，成功破局。</p>
+        <div id="winHand"></div>
+        <div class="stats">
+          <div><div class="v" id="winTime">00:00</div><div class="k">用时</div></div>
+          <div><div class="v" id="winLv">1</div><div class="k">等级</div></div>
+          <div><div class="v" id="winKills">0</div><div class="k">击破</div></div>
+        </div>
+        <button class="big-btn" id="winRestart" type="button">再 来 一 局</button>
+      </div>
+    </div>
+
+    <!-- Game over -->
+    <div class="overlay" id="overOverlay" hidden>
+      <div class="panel">
+        <h2 style="color:var(--red)">被怪海淹没了</h2>
+        <p id="overText">差一点就能胡牌。</p>
+        <div class="stats">
+          <div><div class="v" id="overTime">00:00</div><div class="k">存活</div></div>
+          <div><div class="v" id="overLv">1</div><div class="k">等级</div></div>
+          <div><div class="v" id="overKills">0</div><div class="k">击破</div></div>
+          <div><div class="v" id="overTiles">0 / 14</div><div class="k">手牌</div></div>
+        </div>
+        <button class="big-btn" id="overRestart" type="button">再 来 一 局</button>
+      </div>
+    </div>
+
+    <!-- Pause -->
+    <div class="overlay" id="pauseOverlay" hidden>
+      <div class="panel">
+        <h2>已暂停</h2>
+        <p>按 Esc 或点按钮继续。</p>
+        <button class="big-btn" id="resumeBtn" type="button">继 续</button>
+      </div>
+    </div>
+
+<script>
+"use strict";
+/* ============================================================
+   日麻幸存者 — 原型
+   玩法：吸血鬼幸存者式走位 + 自动攻击；麻将牌散落地图，
+   凑齐 14 张胡牌牌型（4 面子 + 1 雀头，或七对）通关。
+   ============================================================ */
+
+/* ---------------- Mahjong core ---------------- */
+const HONORS = ["東","南","西","北","白","發","中"];
+function tileFace(id){
+  if (id < 9)  return { n: id + 1,      s: "萬", cls: "man" };
+  if (id < 18) return { n: id - 8,      s: "筒", cls: "pin" };
+  if (id < 27) return { n: id - 17,     s: "条", cls: "sou" };
+  const h = HONORS[id - 27];
+  const extra = h === "中" ? "h-red" : (h === "發" ? "h-green" : (h === "白" ? "h-blue" : ""));
+  return { h: h, cls: "hon " + extra };
+}
+function tileName(id){
+  const f = tileFace(id);
+  return f.h ? f.h : (f.n + f.s);
+}
+function countsOf(hand){
+  const c = new Array(34).fill(0);
+  for (const t of hand) c[t]++;
+  return c;
+}
+/* 向听数：标准形 DFS + 七对。-1 = 已胡（需 14 张） */
+function shantenOf(counts){
+  const total = counts.reduce((a, b) => a + b, 0);
+  const c = counts.slice();
+  let best = 8;
+  function dfs(i, m, t, pair){
+    while (i < 34 && c[i] === 0) i++;
+    if (i >= 34){
+      let tt = t;
+      if (m + tt > 4) tt = 4 - m;
+      const s = 8 - 2 * m - tt - pair;
+      if (s < best) best = s;
+      return;
+    }
+    if (c[i] >= 3){ c[i] -= 3; dfs(i, m + 1, t, pair); c[i] += 3; }
+    if (i < 27 && i % 9 <= 6 && c[i + 1] > 0 && c[i + 2] > 0){
+      c[i]--; c[i + 1]--; c[i + 2]--; dfs(i, m + 1, t, pair); c[i]++; c[i + 1]++; c[i + 2]++;
+    }
+    if (!pair && c[i] >= 2){ c[i] -= 2; dfs(i, m, t, 1); c[i] += 2; }
+    if (c[i] >= 2){ c[i] -= 2; dfs(i, m, t + 1, pair); c[i] += 2; }
+    if (i < 27 && i % 9 <= 7 && c[i + 1] > 0){ c[i]--; c[i + 1]--; dfs(i, m, t + 1, pair); c[i]++; c[i + 1]++; }
+    if (i < 27 && i % 9 <= 6 && c[i + 2] > 0){ c[i]--; c[i + 2]--; dfs(i, m, t + 1, pair); c[i]++; c[i + 2]++; }
+    dfs(i + 1, m, t, pair);
+  }
+  dfs(0, 0, 0, 0);
+  if (total >= 12){
+    let pairs = 0, kinds = 0;
+    for (let i = 0; i < 34; i++){ if (counts[i] > 0) kinds++; if (counts[i] >= 2) pairs++; }
+    const chii = 6 - pairs + Math.max(0, 7 - kinds);
+    if (chii < best) best = chii;
+  }
+  return best;
+}
+/* 向听数（带已锁定的吃/碰/杠面子）：locked 为已声明面子数，有锁定面子时不能七对 */
+function shantenWithMelds(counts, locked){
+  if (!locked) return shantenOf(counts);
+  const c = counts.slice();
+  let best = 8;
+  function dfs(i, m, t, pair){
+    while (i < 34 && c[i] === 0) i++;
+    if (i >= 34){
+      const mm = Math.min(m, 4);
+      let tt = t;
+      if (mm + tt > 4) tt = 4 - mm;
+      if (tt < 0) tt = 0;
+      const s = 8 - 2 * mm - tt - pair;
+      if (s < best) best = s;
+      return;
+    }
+    if (c[i] >= 3){ c[i] -= 3; dfs(i, m + 1, t, pair); c[i] += 3; }
+    if (i < 27 && i % 9 <= 6 && c[i + 1] > 0 && c[i + 2] > 0){
+      c[i]--; c[i + 1]--; c[i + 2]--; dfs(i, m + 1, t, pair); c[i]++; c[i + 1]++; c[i + 2]++;
+    }
+    if (!pair && c[i] >= 2){ c[i] -= 2; dfs(i, m, t, 1); c[i] += 2; }
+    if (c[i] >= 2){ c[i] -= 2; dfs(i, m, t + 1, pair); c[i] += 2; }
+    if (i < 27 && i % 9 <= 7 && c[i + 1] > 0){ c[i]--; c[i + 1]--; dfs(i, m, t + 1, pair); c[i]++; c[i + 1]++; }
+    if (i < 27 && i % 9 <= 6 && c[i + 2] > 0){ c[i]--; c[i + 2]--; dfs(i, m, t + 1, pair); c[i]++; c[i + 2]++; }
+    dfs(i + 1, m, t, pair);
+  }
+  dfs(0, locked, 0, 0);
+  return best;
+}
+/* 13 张时，哪些牌是有效进张 */
+function usefulTiles(hand){
+  const counts = countsOf(hand);
+  const base = shantenOf(counts);
+  const out = [];
+  for (let t = 0; t < 34; t++){
+    if (counts[t] >= 4) continue;
+    counts[t]++;
+    if (shantenOf(counts) < base) out.push(t);
+    counts[t]--;
+  }
+  return out;
+}
+
+/* ---------------- Canvas / world ---------------- */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const stageEl = document.getElementById("stage");
+const stageWrapEl = document.getElementById("stageWrap");
+let VW = 0, VH = 0, DPR = 1;
+function resize(){
+  // 地图是正方形：边长取中间区域能容纳的最大正方形
+  const s = Math.max(120, Math.floor(Math.min(stageWrapEl.clientWidth - 12, stageWrapEl.clientHeight - 12)));
+  stageEl.style.width = s + "px";
+  stageEl.style.height = s + "px";
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  VW = s; VH = s;
+  canvas.width = Math.floor(VW * DPR);
+  canvas.height = Math.floor(VH * DPR);
+}
+window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", () => setTimeout(resize, 60));
+resize();
+
+const WORLD = 3400; // square world, felt table
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+const dist2 = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; };
+
+/* ---------------- Audio (tiny synth) ---------------- */
+let audioCtx = null, soundOn = true;
+function beep(freq, dur, type, vol, delay, slideTo){
+  if (!soundOn) return;
+  try{
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const t0 = audioCtx.currentTime + (delay || 0);
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type || "sine";
+    o.frequency.setValueAtTime(freq, t0);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+    g.gain.setValueAtTime(vol || 0.12, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  }catch(e){ /* audio unavailable */ }
+}
+const sfx = {
+  shoot(){ beep(620, 0.05, "square", 0.03); },
+  hit(){ beep(180, 0.05, "sawtooth", 0.045); },
+  pickup(){ beep(880, 0.07, "sine", 0.1); beep(1318, 0.1, "sine", 0.1, 0.06); },
+  gem(){ beep(1180, 0.05, "triangle", 0.05); },
+  hurt(){ beep(140, 0.18, "sawtooth", 0.12, 0, 70); },
+  level(){ [523, 659, 784, 1046].forEach((f, i) => beep(f, 0.12, "triangle", 0.1, i * 0.07)); },
+  discard(){ beep(300, 0.1, "square", 0.09, 0, 900); },
+  meld(){ beep(740, 0.09, "triangle", 0.1); beep(1108, 0.13, "triangle", 0.1, 0.07); },
+  kan(){ [659, 880, 1174, 1568].forEach((f, i) => beep(f, 0.15, "triangle", 0.11, i * 0.06)); },
+  win(){ [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, i) => beep(f, 0.22, "triangle", 0.11, i * 0.13)); },
+  tenpai(){ beep(988, 0.12, "sine", 0.1); beep(988, 0.12, "sine", 0.1, 0.18); },
+  zap(){ beep(1400, 0.12, "square", 0.055, 0, 300); },
+  boom(){ beep(120, 0.22, "sawtooth", 0.09, 0, 45); }
+};
+
+/* ---------------- Characters & weapons ---------------- */
+const CHARS = [
+  { name: "小满", title: "雀坛新人", color: "#2e7d52", weapon: "dart", mods: {},
+    desc: "体质均衡，初始武器「竹叶镖」——直射最近的敌人，稳扎稳打。" },
+  { name: "阿飞", title: "疾风快手", color: "#cf7a2e", weapon: "spread", mods: { speed: 1.15, fireRate: 1.12, hpMul: 0.85 },
+    desc: "移速 +15%、攻速 +12%，但生命低一些。初始武器「千筒散射」——一次喷出一扇牌雨。" },
+  { name: "阿婆", title: "铁壁雀圣", color: "#5d7fa8", weapon: "orbit", mods: { maxHp: 50, speed: 0.94, r: 19 },
+    desc: "生命 +50、身板更硬，移速略慢。初始武器「环身牌阵」——麻将牌绕身旋转，近身的敌人全受伤。" }
+];
+let selectedChar = 0;
+const WEAPONS = {
+  dart:      { name: "竹叶镖", icon: "🎋", desc: "新武器：竹叶镖直射最近的敌人，射速快、单发稳。", upDesc: "伤害 +30%，每 2 级多一发飞镖。" },
+  boomerang: { name: "回旋牌", icon: "🪃", desc: "新武器：扔出的牌会自己飞回来，沿途穿透所有敌人，去程回程都打。", upDesc: "伤害 +30%，3 级和 5 级各多扔一张。" },
+  homing:    { name: "追踪筒", icon: "🧨", desc: "新武器：筒子导弹自动拐弯追踪敌人，命中后小范围爆炸。", upDesc: "导弹数量 +1，爆炸范围和伤害提升。" },
+  spread:    { name: "千筒散射", icon: "🎆", desc: "新武器：一次喷出一扇牌雨，近距离火力凶猛，但射程短。", upDesc: "每级多 1 发散射，伤害提升。" },
+  orbit:     { name: "环身牌阵", icon: "🌀", desc: "新武器：麻将牌绕着你旋转，碰到的敌人持续受伤——贴身战神器。", upDesc: "每级多一张环绕牌，范围和伤害提升。" },
+  chain:     { name: "引雷诀", icon: "⚡", desc: "新武器：周期性放出闪电，在敌人之间跳传，专治扎堆。", upDesc: "跳传次数 +1，伤害提升，冷却缩短。" }
+};
+const MAX_WEAPONS = 4;
+function applyCharacter(p){
+  const c = CHARS[selectedChar];
+  p.color = c.color;
+  p.weapons = [{ type: c.weapon, lv: 1, cd: 0 }];
+  if (c.mods.maxHp){ p.maxHp += c.mods.maxHp; p.hp = p.maxHp; }
+  if (c.mods.hpMul){ p.maxHp = Math.round(p.maxHp * c.mods.hpMul); p.hp = p.maxHp; }
+  if (c.mods.speed) p.speed *= c.mods.speed;
+  if (c.mods.fireRate) p.fireRate *= c.mods.fireRate;
+  if (c.mods.r) p.r = c.mods.r;
+}
+
+/* ---------------- Game state ---------------- */
+let state = "menu"; // menu | playing | levelup | paused | won | over
+let G = null;
+function newGame(){
+  // wall: 4 copies of each of 34 types, shuffled
+  const wall = [];
+  for (let t = 0; t < 34; t++) for (let k = 0; k < 4; k++) wall.push(t);
+  for (let i = wall.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = wall[i]; wall[i] = wall[j]; wall[j] = tmp;
+  }
+  G = {
+    time: 0, kills: 0,
+    player: {
+      x: WORLD / 2, y: WORLD / 2, r: 17,
+      hp: 100, maxHp: 100, speed: 238,
+      damage: 16, fireRate: 2.3, projCount: 1, projSpeed: 560,
+      magnet: 78, regen: 0, hurtCd: 0, face: 1,
+      color: "#2e7d52",
+      weapons: [{ type: "dart", lv: 1, cd: 0 }],
+      crit: 0, bounce: 0, pierce: 0, explodeR: 0, frost: 0, lifesteal: 0
+    },
+    level: 1, xp: 0, xpNext: 6,
+    enemies: [], projs: [], gems: [], tiles: [], parts: [], texts: [],
+    wall: wall,
+    hand: [],
+    melds: [],
+    spawnT: 0, tileT: 0, eliteT: 26, shake: 0,
+    orbitAngle: 0, zaps: [], rings: [],
+    wasTenpai: false, fullHintT: 0
+  };
+  applyCharacter(G.player);
+  for (let i = 0; i < 78; i++) scatterTile(true);
+  updateHandUI();
+  updateHUD(true);
+}
+/* scatter one tile from the wall onto the map */
+function scatterTile(anywhere){
+  if (!G.wall.length) return;
+  const id = G.wall.pop();
+  let x, y, tries = 0;
+  do {
+    if (anywhere){ x = rand(70, WORLD - 70); y = rand(70, WORLD - 70); }
+    else {
+      const a = rand(0, Math.PI * 2), d = rand(420, 1050);
+      x = clamp(G.player.x + Math.cos(a) * d, 60, WORLD - 60);
+      y = clamp(G.player.y + Math.sin(a) * d, 60, WORLD - 60);
+    }
+    tries++;
+  } while (dist2(x, y, G.player.x, G.player.y) < 120 * 120 && tries < 8);
+  G.tiles.push({ id: id, x: x, y: y, bob: rand(0, Math.PI * 2) });
+}
+
+/* ---------------- Input ---------------- */
+const keys = {};
+window.addEventListener("keydown", (e) => {
+  if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
+  keys[e.key.toLowerCase()] = true;
+  if ((e.key === "Escape" || e.key.toLowerCase() === "p")) togglePause();
+});
+window.addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
+
+/* 浮动虚拟摇杆：按哪出哪
+   在地图（#stageWrap）或下方手牌区空白处（#bottomBar）按下，
+   摇杆就出现在按压点；拖动控制方向，松手消失。
+   按在手牌、按钮、已声明面子等可点元素上时不触发摇杆。 */
+const joy = { active: false, id: null, dx: 0, dy: 0, ox: 0, oy: 0 };
+const joyFloat = document.getElementById("joyFloat");
+const joyKnobFloat = document.getElementById("joyKnobFloat");
+const JOY_RADIUS = 46; // 摇杆最大偏移（px），与浮动底座尺寸对应
+function joyShow(x, y){
+  joy.ox = x; joy.oy = y; joy.dx = 0; joy.dy = 0;
+  joyFloat.style.left = x + "px";
+  joyFloat.style.top = y + "px";
+  joyKnobFloat.style.transform = "translate(-50%,-50%)";
+  joyFloat.classList.add("on");
+}
+function joyMoveTo(x, y){
+  let dx = x - joy.ox, dy = y - joy.oy;
+  const len = Math.hypot(dx, dy);
+  if (len > JOY_RADIUS){ dx = dx / len * JOY_RADIUS; dy = dy / len * JOY_RADIUS; }
+  const nx = dx / JOY_RADIUS, ny = dy / JOY_RADIUS;
+  if (Math.hypot(nx, ny) < 0.14){ joy.dx = 0; joy.dy = 0; }
+  else { joy.dx = nx; joy.dy = ny; }
+  joyKnobFloat.style.transform = "translate(calc(-50% + " + dx + "px), calc(-50% + " + dy + "px))";
+}
+function joyReset(){
+  joy.active = false; joy.id = null; joy.dx = 0; joy.dy = 0;
+  joyKnobFloat.style.transform = "translate(-50%,-50%)";
+  joyFloat.classList.remove("on");
+}
+function joyBlockedTarget(target){
+  if (!target || !target.closest) return false;
+  return !!target.closest(".htile, .tile-x, button, .meld-group, .overlay");
+}
+function onJoyPointerDown(e){
+  if (state !== "playing") return;
+  if (joy.active) return;
+  if (joyBlockedTarget(e.target)) return;
+  joy.active = true; joy.id = e.pointerId;
+  joyShow(e.clientX, e.clientY);
+  joyMoveTo(e.clientX, e.clientY);
+  e.preventDefault();
+}
+stageWrapEl.addEventListener("pointerdown", onJoyPointerDown);
+document.getElementById("bottomBar").addEventListener("pointerdown", onJoyPointerDown);
+window.addEventListener("pointermove", (e) => {
+  if (joy.active && e.pointerId === joy.id) joyMoveTo(e.clientX, e.clientY);
+}, { passive: true });
+window.addEventListener("pointerup", (e) => { if (e.pointerId === joy.id) joyReset(); });
+window.addEventListener("pointercancel", (e) => { if (e.pointerId === joy.id) joyReset(); });
+window.addEventListener("blur", joyReset);
+
+function moveInput(){
+  let dx = 0, dy = 0;
+  if (keys["w"] || keys["arrowup"]) dy -= 1;
+  if (keys["s"] || keys["arrowdown"]) dy += 1;
+  if (keys["a"] || keys["arrowleft"]) dx -= 1;
+  if (keys["d"] || keys["arrowright"]) dx += 1;
+  if (dx === 0 && dy === 0 && joy.active){ dx = joy.dx; dy = joy.dy; }
+  const l = Math.hypot(dx, dy);
+  if (l > 1){ dx /= l; dy /= l; }
+  return { x: dx, y: dy };
+}
+
+/* ---------------- Spawning ---------------- */
+function spawnEnemy(elite){
+  const p = G.player;
+  const a = rand(0, Math.PI * 2);
+  const d = Math.hypot(VW, VH) / 2 + rand(60, 200);
+  const x = clamp(p.x + Math.cos(a) * d, 26, WORLD - 26);
+  const y = clamp(p.y + Math.sin(a) * d, 26, WORLD - 26);
+  const t = G.time;
+  let kind = "blob";
+  const roll = Math.random();
+  if (elite) kind = "elite";
+  else if (t > 75 && roll < 0.22) kind = "fast";
+  else if (t > 150 && roll < 0.42) kind = "tank";
+  const scale = 1 + t / 55;
+  const base = {
+    blob:  { r: 16, hp: 20,  sp: 76.8,  dmg: 9,  xp: 1 },
+    fast:  { r: 12, hp: 13,  sp: 121.6, dmg: 7,  xp: 1 },
+    tank:  { r: 25, hp: 78,  sp: 49.6,  dmg: 15, xp: 3 },
+    elite: { r: 30, hp: 300, sp: 59.2,  dmg: 18, xp: 8 }
+  }[kind];
+  G.enemies.push({
+    x: x, y: y, kind: kind, r: base.r,
+    hp: base.hp * scale, maxHp: base.hp * scale,
+    sp: base.sp * rand(0.88, 1.12), dmg: base.dmg, xp: base.xp,
+    hitT: 0, wob: rand(0, Math.PI * 2),
+    orbCd: 0, boomCd: 0, slowT: 0, slowF: 0, dead: false
+  });
+}
+
+/* ---------------- Combat / updates ---------------- */
+function nearestEnemy(x, y, maxD){
+  let best = null, bd = maxD * maxD;
+  for (const e of G.enemies){
+    if (e.dead) continue;
+    const d = dist2(x, y, e.x, e.y);
+    if (d < bd){ bd = d; best = e; }
+  }
+  return best;
+}
+function addText(x, y, s, color, size){
+  G.texts.push({ x: x, y: y, s: s, color: color || "#f3ead8", size: size || 14, t: 0 });
+}
+function burst(x, y, color, n){
+  for (let i = 0; i < n; i++){
+    const a = rand(0, Math.PI * 2), sp = rand(40, 190);
+    G.parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, t: 0, life: rand(0.25, 0.6), color: color, r: rand(2, 4.5) });
+  }
+}
+let toastTimer = null;
+function toast(msg, ms){
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.style.opacity = "1";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.opacity = "0"; }, ms || 1800);
+}
+
+/* ---------------- Damage & weapons ---------------- */
+let projUid = 1;
+/* 统一伤害结算：暴击、寒冰减速、击退、击杀与吸血都在这里处理 */
+function damageEnemy(e, dmg, kx, ky){
+  if (!e || e.dead) return;
+  const p = G.player;
+  let crit = false;
+  if (p.crit > 0 && Math.random() < p.crit){ dmg *= 2; crit = true; }
+  e.hp -= dmg;
+  e.hitT = 0.09;
+  if (p.frost > 0){ e.slowT = 1.2; e.slowF = p.frost; }
+  if (kx || ky){ e.x += kx; e.y += ky; }
+  addText(e.x + rand(-6, 6), e.y - e.r - 4, (crit ? "暴击 " : "") + String(Math.round(dmg)), crit ? "#ffd166" : "#f3ead8", crit ? 16 : 12.5);
+  if (e.hp <= 0 && !e.dead){
+    e.dead = true;
+    killEnemy(e);
+    if (p.lifesteal > 0) p.hp = Math.min(p.maxHp, p.hp + p.lifesteal);
+  }
+}
+function explodeAt(x, y, r, dmg, exclude){
+  G.rings.push({ x: x, y: y, r: r, t: 0 });
+  burst(x, y, "#ff9d5c", 12);
+  sfx.boom();
+  for (const e of G.enemies){
+    if (e === exclude || e.dead) continue;
+    if (dist2(x, y, e.x, e.y) < (r + e.r) * (r + e.r)){
+      const a = Math.atan2(e.y - y, e.x - x);
+      damageEnemy(e, dmg, Math.cos(a) * 7, Math.sin(a) * 7);
+    }
+  }
+}
+function cleanupEnemies(){
+  if (G.enemies.some(e => e.dead)) G.enemies = G.enemies.filter(e => !e.dead);
+}
+function mkProj(o){
+  o.uid = projUid++;
+  if (o.pierce == null) o.pierce = G.player.pierce;
+  o.bounce = G.player.bounce;
+  if (o.explodeR == null) o.explodeR = G.player.explodeR;
+  o.heavy = !!o.heavy;
+  G.projs.push(o);
+  return o;
+}
+function fireWeapon(w, dt){
+  const p = G.player;
+  w.cd -= dt;
+  if (w.type === "orbit") return; // 环身牌阵是被动武器，在 updateOrbit 里结算
+  if (w.cd > 0) return;
+  const lv = w.lv;
+  if (w.type === "dart"){
+    const target = nearestEnemy(p.x, p.y, 640);
+    if (!target){ w.cd = 0.08; return; }
+    const baseA = Math.atan2(target.y - p.y, target.x - p.x);
+    const n = p.projCount + Math.floor((lv - 1) / 2);
+    for (let i = 0; i < n; i++){
+      const off = n === 1 ? 0 : (i - (n - 1) / 2) * 0.16;
+      const a = baseA + off;
+      mkProj({ kind: "dart", x: p.x, y: p.y, vx: Math.cos(a) * p.projSpeed, vy: Math.sin(a) * p.projSpeed,
+        dmg: p.damage * (1 + 0.3 * (lv - 1)), r: 7, rot: rand(0, 6) });
+    }
+    sfx.shoot();
+    w.cd = 1 / p.fireRate;
+  }
+  else if (w.type === "spread"){
+    const target = nearestEnemy(p.x, p.y, 520);
+    if (!target){ w.cd = 0.08; return; }
+    const baseA = Math.atan2(target.y - p.y, target.x - p.x);
+    const n = 5 + lv;
+    for (let i = 0; i < n; i++){
+      const a = baseA + (i - (n - 1) / 2) * 0.13 + rand(-0.03, 0.03);
+      const sp = p.projSpeed * rand(0.92, 1.12);
+      mkProj({ kind: "pellet", x: p.x, y: p.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        dmg: p.damage * (0.42 + 0.07 * lv), r: 6, life: 0.42, rot: rand(0, 6) });
+    }
+    sfx.shoot();
+    w.cd = 1 / (p.fireRate * 0.55);
+  }
+  else if (w.type === "boomerang"){
+    const target = nearestEnemy(p.x, p.y, 580);
+    if (!target){ w.cd = 0.08; return; }
+    const baseA = Math.atan2(target.y - p.y, target.x - p.x);
+    const n = 1 + (lv >= 3 ? 1 : 0) + (lv >= 5 ? 1 : 0);
+    for (let i = 0; i < n; i++){
+      const a = baseA + (n === 1 ? 0 : (i - (n - 1) / 2) * 0.35);
+      mkProj({ kind: "boomerang", x: p.x, y: p.y, vx: Math.cos(a) * p.projSpeed * 0.95, vy: Math.sin(a) * p.projSpeed * 0.95,
+        dmg: p.damage * (0.9 + 0.3 * (lv - 1)), r: 11, pierce: 99, t: 0, phase: "out", rot: 0, tileId: 20 });
+    }
+    beep(340, 0.08, "sine", 0.045, 0, 700);
+    w.cd = 1 / (p.fireRate * 0.5);
+  }
+  else if (w.type === "homing"){
+    const target = nearestEnemy(p.x, p.y, 640);
+    if (!target){ w.cd = 0.08; return; }
+    const n = Math.min(1 + lv, 6);
+    for (let i = 0; i < n; i++){
+      const a = rand(0, Math.PI * 2);
+      const sp = p.projSpeed * 0.7;
+      mkProj({ kind: "homing", x: p.x, y: p.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        dmg: p.damage * (0.85 + 0.25 * (lv - 1)), r: 8, explodeR: Math.max(p.explodeR, 52 + 7 * lv), rot: 0 });
+    }
+    beep(500, 0.09, "triangle", 0.05, 0, 220);
+    w.cd = 1 / (p.fireRate * 0.45);
+  }
+  else if (w.type === "chain"){
+    if (!nearestEnemy(p.x, p.y, 430)){ w.cd = 0.15; return; }
+    castChain(w);
+    w.cd = Math.max(0.8, 2.1 - 0.18 * lv) * (2.3 / p.fireRate);
+  }
+}
+function castChain(w){
+  const p = G.player;
+  const lv = w.lv;
+  const jumps = 2 + lv;
+  let cur = nearestEnemy(p.x, p.y, 430);
+  const pts = [[p.x, p.y]];
+  const hitSet = new Set();
+  let dmg = p.damage * (1.1 + 0.25 * (lv - 1));
+  let step = 0;
+  while (cur && step <= jumps){
+    pts.push([cur.x, cur.y]);
+    hitSet.add(cur);
+    damageEnemy(cur, dmg, 0, 0);
+    dmg *= 0.78;
+    step++;
+    let next = null, bd = 200 * 200;
+    for (const e of G.enemies){
+      if (e.dead || hitSet.has(e)) continue;
+      const d = dist2(cur.x, cur.y, e.x, e.y);
+      if (d < bd){ bd = d; next = e; }
+    }
+    cur = next;
+  }
+  if (pts.length > 1){ G.zaps.push({ pts: pts, t: 0 }); sfx.zap(); }
+}
+function orbitWeapon(){ return G.player.weapons.find(w => w.type === "orbit"); }
+function orbitPositions(){
+  const w = orbitWeapon();
+  if (!w) return [];
+  const p = G.player;
+  const n = 1 + w.lv, R = 58 + 5 * w.lv;
+  const out = [];
+  for (let i = 0; i < n; i++){
+    const a = G.orbitAngle + i * Math.PI * 2 / n;
+    out.push({ x: p.x + Math.cos(a) * R, y: p.y + Math.sin(a) * R });
+  }
+  return out;
+}
+function updateOrbit(dt){
+  const w = orbitWeapon();
+  if (!w) return;
+  G.orbitAngle += dt * 2.7;
+  const dmg = G.player.damage * (0.75 + 0.28 * (w.lv - 1));
+  for (const o of orbitPositions()){
+    for (const e of G.enemies){
+      if (e.dead || e.orbCd > 0) continue;
+      if (dist2(o.x, o.y, e.x, e.y) < (15 + e.r) * (15 + e.r)){
+        e.orbCd = 0.38;
+        damageEnemy(e, dmg, 0, 0);
+      }
+    }
+  }
+}
+
+function gainXP(v){
+  G.xp += v * 1.1; // 经验 +10%（难度调整）
+  if (G.xp >= G.xpNext && state === "playing"){
+    G.xp -= G.xpNext;
+    G.level++;
+    G.xpNext = Math.floor(6 + G.level * 4.5);
+    openLevelUp();
+  }
+}
+
+function killEnemy(e){
+  G.kills++;
+  burst(e.x, e.y, e.kind === "elite" ? "#e8c15a" : "#c9554a", e.kind === "elite" ? 26 : 10);
+  for (let i = 0; i < e.xp; i++){
+    G.gems.push({ x: e.x + rand(-12, 12), y: e.y + rand(-12, 12), v: 1, t: rand(0, 6) });
+  }
+  if (e.kind === "elite"){
+    if (G.wall.length){
+      const id = G.wall.pop();
+      G.tiles.push({ id: id, x: e.x, y: e.y, bob: rand(0, 6) });
+      addText(e.x, e.y - 34, "掉牌！", "#e8c15a", 16);
+    }
+    toast("精英被击破，掉了一张牌！");
+  } else if (Math.random() < 0.012 && G.wall.length){
+    const id = G.wall.pop();
+    G.tiles.push({ id: id, x: e.x, y: e.y, bob: rand(0, 6) });
+  }
+}
+
+/* ---------------- Melds （吃 / 碰 / 杠） ---------------- */
+function meldTileCount(){ return G.melds.reduce((a, m) => a + m.tiles.length, 0); }
+function kanCount(){ return G.melds.filter(m => m.type === "kan").length; }
+function totalTiles(){ return G.hand.length + meldTileCount(); }
+function targetTotal(){ return 14 + kanCount(); } // 每杠一个，胡牌总数 +1
+function effShanten(){ return shantenWithMelds(countsOf(G.hand), G.melds.length); }
+function isWinningHand(){
+  if (!G) return false;
+  if (totalTiles() !== targetTotal()) return false;
+  return effShanten() === -1;
+}
+/* 当前手牌里，点第 idx 张能声明的面子（杠 > 碰 > 吃） */
+function findMeldForIndex(idx){
+  const hand = G.hand;
+  if (idx < 0 || idx >= hand.length) return null;
+  const id = hand[idx];
+  const same = [];
+  hand.forEach((t, i) => { if (t === id) same.push(i); });
+  if (same.length >= 4) return { type: "kan", label: "杠", indices: same.slice(0, 4) };
+  /* 加杠：已碰的面子，手里再有第 4 张相同的牌即可升级成杠 */
+  const ponIdx = G.melds.findIndex(m => m.type === "pon" && m.tiles[0] === id);
+  if (ponIdx >= 0) return { type: "kakan", label: "加杠", indices: [idx], meldIndex: ponIdx };
+  if (same.length === 3) return { type: "pon", label: "碰", indices: same.slice(0, 3) };
+  if (id < 27){
+    const suitStart = Math.floor(id / 9) * 9;
+    for (let s = id - 2; s <= id; s++){
+      if (s < suitStart || s > suitStart + 6) continue;
+      const idxs = [];
+      let ok = true;
+      for (let v = s; v < s + 3; v++){
+        if (v === id) idxs.push(idx);
+        else {
+          const j = hand.indexOf(v);
+          if (j === -1){ ok = false; break; }
+          idxs.push(j);
+        }
+      }
+      if (ok) return { type: "chi", label: "吃", indices: idxs.sort((a, b) => a - b) };
+    }
+  }
+  return null;
+}
+/* 点一下那组牌 -> 声明面子并锁定；杠再从牌墙补一张 */
+function declareMeld(idx){
+  if (state !== "playing" || !G) return false;
+  const meld = findMeldForIndex(idx);
+  if (!meld) return false;
+  const isKakan = meld.type === "kakan";
+  const tiles = meld.indices.map(i => G.hand[i]).sort((a, b) => a - b);
+  meld.indices.slice().sort((a, b) => b - a).forEach(i => G.hand.splice(i, 1));
+  if (isKakan){
+    /* 把手里的第 4 张并入已碰的面子，升级为杠 */
+    const target = G.melds[meld.meldIndex];
+    target.tiles.push(tiles[0]);
+    target.tiles.sort((a, b) => a - b);
+    target.type = "kan";
+  } else {
+    G.melds.push({ type: meld.type, tiles: tiles });
+  }
+  const p = G.player;
+  G.wasTenpai = false;
+  if (meld.type === "kan" || isKakan){
+    sfx.kan();
+    burst(p.x, p.y, "#e8c15a", 18);
+    addText(p.x, p.y - 36, isKakan ? "加杠！" : "杠！", "#e8c15a", 21);
+    if (G.wall.length){
+      const nid = G.wall.pop();
+      G.hand.push(nid);
+      G.hand.sort((a, b) => a - b);
+      addText(p.x, p.y - 60, "补张 " + tileName(nid), "#ffe9a8", 15);
+      toast((isKakan ? "加杠！碰升级成杠，" : "杠！面子锁定，") + "补了一张 " + tileName(nid), 2200);
+    } else {
+      toast(isKakan ? "加杠！碰升级成杠" : "杠！面子锁定", 2000);
+    }
+  } else {
+    sfx.meld();
+    addText(p.x, p.y - 36, meld.label + "！", "#e8c15a", 19);
+    toast(meld.label + "！面子锁定：" + tiles.map(tileName).join(" "), 1900);
+  }
+  updateHandUI();
+  if (isWinningHand()){ onWin(); }
+  return true;
+}
+/* 点角落里已碰的面子 -> 若手里有第 4 张，直接加杠 */
+function declareKakanFromMeld(mi){
+  if (state !== "playing" || !G) return;
+  const m = G.melds[mi];
+  if (!m || m.type !== "pon") return;
+  const idx = G.hand.indexOf(m.tiles[0]);
+  if (idx >= 0) declareMeld(idx);
+}
+/* 点手牌：能吃/碰/杠/加杠就声明，否则打出 */
+function onTileClick(idx){
+  if (state !== "playing" || !G) return;
+  if (!declareMeld(idx)) discardTile(idx);
+}
+
+function pickupTile(tile){
+  G.hand.push(tile.id);
+  G.hand.sort((a, b) => a - b);
+  sfx.pickup();
+  burst(tile.x, tile.y, "#e8c15a", 8);
+  addText(G.player.x, G.player.y - 30, "摸到 " + tileName(tile.id), "#ffe9a8", 15);
+  updateHandUI();
+  if (isWinningHand()){ onWin(); return; }
+  if (totalTiles() === targetTotal() - 1 && effShanten() === 0 && !G.wasTenpai){
+    G.wasTenpai = true;
+    toast("听牌了！就差一张", 2200);
+    sfx.tenpai();
+  }
+  if (totalTiles() < targetTotal() - 1) G.wasTenpai = false;
+}
+
+/* click a hand tile -> discard it as a heavy attack */
+function discardTile(idx){
+  if (state !== "playing" || !G || idx < 0 || idx >= G.hand.length) return;
+  const id = G.hand.splice(idx, 1)[0];
+  const p = G.player;
+  const target = nearestEnemy(p.x, p.y, 900);
+  let a = -Math.PI / 2;
+  if (target) a = Math.atan2(target.y - p.y, target.x - p.x);
+  else if (p.face) a = p.face > 0 ? 0 : Math.PI;
+  mkProj({
+    kind: "dart", x: p.x, y: p.y, vx: Math.cos(a) * 620, vy: Math.sin(a) * 620,
+    dmg: p.damage * 3 + 25, r: 13, pierce: 99, heavy: true, tileId: id, rot: 0
+  });
+  sfx.discard();
+  addText(p.x, p.y - 30, "打 " + tileName(id) + "！", "#ffb3a0", 15);
+  G.wasTenpai = false;
+  updateHandUI();
+}
+
+function update(dt){
+  const p = G.player;
+  G.time += dt;
+
+  /* --- movement --- */
+  const mv = moveInput();
+  p.x = clamp(p.x + mv.x * p.speed * dt, p.r, WORLD - p.r);
+  p.y = clamp(p.y + mv.y * p.speed * dt, p.r, WORLD - p.r);
+  if (mv.x !== 0) p.face = mv.x > 0 ? 1 : -1;
+  if (p.regen > 0) p.hp = Math.min(p.maxHp, p.hp + p.regen * dt);
+  if (p.hurtCd > 0) p.hurtCd -= dt;
+
+  /* --- weapons：每件武器独立开火 --- */
+  for (const w of p.weapons) fireWeapon(w, dt);
+  updateOrbit(dt);
+  cleanupEnemies();
+
+  /* --- spawns --- */
+  G.spawnT -= dt;
+  const interval = clamp(1.05 - G.time * 0.006, 0.3, 1.05);
+  if (G.spawnT <= 0 && G.enemies.length < 130){
+    spawnEnemy(false);
+    if (G.time > 90 && Math.random() < 0.4) spawnEnemy(false);
+    G.spawnT = interval;
+  }
+  G.eliteT -= dt;
+  if (G.eliteT <= 0){ spawnEnemy(true); G.eliteT = rand(38, 50); toast("精英怪出现！击破必掉牌", 2000); }
+
+  /* --- keep tiles available --- */
+  G.tileT -= dt;
+  if (G.tileT <= 0){
+    G.tileT = 2.2;
+    if (G.tiles.length < 46 && G.wall.length) scatterTile(false);
+  }
+
+  /* --- enemies --- */
+  for (let i = G.enemies.length - 1; i >= 0; i--){
+    const e = G.enemies[i];
+    if (e.dead) continue;
+    e.wob += dt * 6;
+    if (e.hitT > 0) e.hitT -= dt;
+    if (e.orbCd > 0) e.orbCd -= dt;
+    if (e.boomCd > 0) e.boomCd -= dt;
+    if (e.slowT > 0) e.slowT -= dt;
+    const dx = p.x - e.x, dy = p.y - e.y;
+    const l = Math.hypot(dx, dy) || 1;
+    const spMul = e.slowT > 0 ? 1 - e.slowF : 1;
+    e.x += dx / l * e.sp * spMul * dt;
+    e.y += dy / l * e.sp * spMul * dt;
+    // gentle separation
+    for (let j = i + 1; j < G.enemies.length; j++){
+      const o = G.enemies[j];
+      const d2 = dist2(e.x, e.y, o.x, o.y), min = (e.r + o.r) * 0.9;
+      if (d2 < min * min && d2 > 0.01){
+        const d = Math.sqrt(d2), push = (min - d) / d * 0.5;
+        e.x -= (o.x - e.x) * push * 0.4; e.y -= (o.y - e.y) * push * 0.4;
+        o.x += (o.x - e.x) * push * 0.4; o.y += (o.y - e.y) * push * 0.4;
+      }
+    }
+    if (l < e.r + p.r - 2 && p.hurtCd <= 0){
+      p.hp -= e.dmg;
+      p.hurtCd = 0.55;
+      G.shake = 7;
+      sfx.hurt();
+      burst(p.x, p.y, "#e05a4e", 8);
+      if (p.hp <= 0){ p.hp = 0; onGameOver(); return; }
+    }
+  }
+
+  /* --- projectiles --- */
+  for (let i = G.projs.length - 1; i >= 0; i--){
+    const pr = G.projs[i];
+    let dead = false;
+    if (pr.kind === "homing"){
+      const tgt = nearestEnemy(pr.x, pr.y, 560);
+      if (tgt){
+        const cur = Math.atan2(pr.vy, pr.vx);
+        const want = Math.atan2(tgt.y - pr.y, tgt.x - pr.x);
+        let diff = want - cur;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        const turn = clamp(diff, -6.5 * dt, 6.5 * dt);
+        const sp = Math.hypot(pr.vx, pr.vy);
+        const na = cur + turn;
+        pr.vx = Math.cos(na) * sp; pr.vy = Math.sin(na) * sp;
+      }
+    }
+    if (pr.kind === "boomerang"){
+      pr.t += dt;
+      if (pr.phase === "out" && pr.t > 0.55) pr.phase = "back";
+      if (pr.phase === "back"){
+        const a = Math.atan2(p.y - pr.y, p.x - pr.x);
+        const sp = p.projSpeed * 1.15;
+        pr.vx = Math.cos(a) * sp; pr.vy = Math.sin(a) * sp;
+        if (dist2(pr.x, pr.y, p.x, p.y) < 34 * 34) dead = true;
+      }
+    }
+    pr.x += pr.vx * dt; pr.y += pr.vy * dt; pr.rot += dt * 9;
+    if (pr.life != null){ pr.life -= dt; if (pr.life <= 0) dead = true; }
+    if (pr.x < -40 || pr.y < -40 || pr.x > WORLD + 40 || pr.y > WORLD + 40) dead = true;
+    if (!dead){
+      for (let j = G.enemies.length - 1; j >= 0; j--){
+        const e = G.enemies[j];
+        if (e.dead) continue;
+        if (dist2(pr.x, pr.y, e.x, e.y) >= (pr.r + e.r) * (pr.r + e.r)) continue;
+        if (pr.kind === "boomerang"){
+          /* 回旋牌沿途穿透：同一敌人短时间内只结算一次 */
+          if (e.boomCd > 0) continue;
+          e.boomCd = 0.32;
+          damageEnemy(e, pr.dmg, 0, 0);
+          if (pr.explodeR > 0) explodeAt(pr.x, pr.y, pr.explodeR, pr.dmg * 0.6, e);
+          continue;
+        }
+        const kb = pr.heavy ? 9 : 2.5;
+        const ka = Math.atan2(pr.vy, pr.vx);
+        damageEnemy(e, pr.dmg, Math.cos(ka) * kb, Math.sin(ka) * kb);
+        sfx.hit();
+        if (pr.explodeR > 0){ explodeAt(pr.x, pr.y, pr.explodeR, pr.dmg * 0.6, e); dead = true; }
+        else if (pr.pierce > 0){ pr.pierce--; }
+        else if (pr.bounce > 0){
+          let next = null, bd = 280 * 280;
+          for (const o of G.enemies){
+            if (o === e || o.dead) continue;
+            const d = dist2(pr.x, pr.y, o.x, o.y);
+            if (d < bd){ bd = d; next = o; }
+          }
+          if (next){
+            pr.bounce--;
+            const na = Math.atan2(next.y - pr.y, next.x - pr.x);
+            const sp = Math.hypot(pr.vx, pr.vy);
+            pr.vx = Math.cos(na) * sp; pr.vy = Math.sin(na) * sp;
+          } else dead = true;
+        }
+        else dead = true;
+        break;
+      }
+    }
+    if (dead) G.projs.splice(i, 1);
+  }
+  cleanupEnemies();
+
+  /* --- gems --- */
+  for (let i = G.gems.length - 1; i >= 0; i--){
+    const g = G.gems[i];
+    g.t += dt * 5;
+    const d2 = dist2(g.x, g.y, p.x, p.y);
+    if (d2 < p.magnet * p.magnet){
+      const d = Math.sqrt(d2) || 1;
+      const pull = 340 * dt;
+      g.x += (p.x - g.x) / d * pull;
+      g.y += (p.y - g.y) / d * pull;
+    }
+    if (d2 < (p.r + 10) * (p.r + 10)){
+      G.gems.splice(i, 1);
+      sfx.gem();
+      gainXP(g.v);
+      if (state !== "playing") return;
+    }
+  }
+
+  /* --- tiles on ground --- */
+  for (let i = G.tiles.length - 1; i >= 0; i--){
+    const t = G.tiles[i];
+    t.bob += dt * 2.4;
+    if (dist2(t.x, t.y, p.x, p.y) < 36 * 36){
+      if (totalTiles() < targetTotal()){
+        G.tiles.splice(i, 1);
+        pickupTile(t);
+        if (state !== "playing") return;
+      } else if (G.fullHintT <= 0){
+        G.fullHintT = 2.5;
+        toast("手牌已满（" + targetTotal() + " 张）——点手牌右上角 × 打出一张换牌", 2200);
+      }
+    }
+  }
+  if (G.fullHintT > 0) G.fullHintT -= dt;
+
+  /* --- particles & texts --- */
+  for (let i = G.parts.length - 1; i >= 0; i--){
+    const pt = G.parts[i];
+    pt.t += dt;
+    pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+    pt.vx *= 0.9; pt.vy *= 0.9;
+    if (pt.t > pt.life) G.parts.splice(i, 1);
+  }
+  for (let i = G.texts.length - 1; i >= 0; i--){
+    const tx = G.texts[i];
+    tx.t += dt; tx.y -= 34 * dt;
+    if (tx.t > 0.85) G.texts.splice(i, 1);
+  }
+  for (let i = G.zaps.length - 1; i >= 0; i--){ G.zaps[i].t += dt; if (G.zaps[i].t > 0.18) G.zaps.splice(i, 1); }
+  for (let i = G.rings.length - 1; i >= 0; i--){ G.rings[i].t += dt; if (G.rings[i].t > 0.3) G.rings.splice(i, 1); }
+  if (G.shake > 0) G.shake = Math.max(0, G.shake - dt * 26);
+  updateHUD();
+}
+
+/* ---------------- Rendering ---------------- */
+function roundRect(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+const SUIT_COLOR = { man: "#2b2b2b", pin: "#1d5fae", sou: "#1e7a3c" };
+function drawTileFace(x, y, w, h, id){
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,.4)"; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
+  roundRect(x, y, w, h, w * 0.16);
+  const grad = ctx.createLinearGradient(x, y, x, y + h);
+  grad.addColorStop(0, "#fffdf4"); grad.addColorStop(0.6, "#f8f3e3"); grad.addColorStop(1, "#e3d9ba");
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = "#a99a6d"; ctx.lineWidth = 1.2; ctx.stroke();
+  const f = tileFace(id);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  if (f.h){
+    let col = "#26303a";
+    if (f.cls.includes("h-red")) col = "#c22f2f";
+    if (f.cls.includes("h-green")) col = "#1e7a3c";
+    if (f.cls.includes("h-blue")) col = "#1d5fae";
+    ctx.fillStyle = col;
+    ctx.font = "900 " + (h * 0.5) + "px 'Noto Sans SC', sans-serif";
+    ctx.fillText(f.h, x + w / 2, y + h / 2 + 1);
+  } else {
+    ctx.fillStyle = SUIT_COLOR[f.cls];
+    ctx.font = "900 " + (h * 0.34) + "px 'Noto Sans SC', sans-serif";
+    ctx.fillText(String(f.n), x + w / 2, y + h * 0.32);
+    if (f.cls === "man") ctx.fillStyle = "#c22f2f";
+    ctx.font = "900 " + (h * 0.3) + "px 'Noto Sans SC', sans-serif";
+    ctx.fillText(f.s, x + w / 2, y + h * 0.68);
+  }
+  ctx.restore();
+}
+
+function draw(){
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = "#0d3527";
+  ctx.fillRect(0, 0, VW, VH);
+  if (!G) return;
+  const p = G.player;
+  const shx = G.shake ? rand(-G.shake, G.shake) : 0;
+  const shy = G.shake ? rand(-G.shake, G.shake) : 0;
+  const camX = clamp(p.x - VW / 2, 0, Math.max(0, WORLD - VW)) + shx;
+  const camY = clamp(p.y - VH / 2, 0, Math.max(0, WORLD - VH)) + shy;
+  // if viewport bigger than world, center it
+  const offX = VW > WORLD ? (VW - WORLD) / 2 : 0;
+  const offY = VH > WORLD ? (VH - WORLD) / 2 : 0;
+
+  ctx.save();
+  ctx.translate(offX - camX, offY - camY);
+
+  /* felt + grid */
+  ctx.fillStyle = "#11402f";
+  ctx.fillRect(0, 0, WORLD, WORLD);
+  ctx.strokeStyle = "rgba(243,234,216,.05)";
+  ctx.lineWidth = 1;
+  const gs = 85;
+  const x0 = Math.max(0, camX - offX), x1 = Math.min(WORLD, camX - offX + VW);
+  const y0 = Math.max(0, camY - offY), y1 = Math.min(WORLD, camY - offY + VH);
+  ctx.beginPath();
+  for (let gx = Math.floor(x0 / gs) * gs; gx <= x1; gx += gs){ ctx.moveTo(gx, y0); ctx.lineTo(gx, y1); }
+  for (let gy = Math.floor(y0 / gs) * gs; gy <= y1; gy += gs){ ctx.moveTo(x0, gy); ctx.lineTo(x1, gy); }
+  ctx.stroke();
+  /* table border */
+  ctx.strokeStyle = "#7a5c22";
+  ctx.lineWidth = 10;
+  ctx.strokeRect(5, 5, WORLD - 10, WORLD - 10);
+  ctx.strokeStyle = "rgba(232,193,90,.5)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(14, 14, WORLD - 28, WORLD - 28);
+  /* center emblem */
+  ctx.save();
+  ctx.globalAlpha = 0.07;
+  ctx.fillStyle = "#f3ead8";
+  ctx.font = "900 340px 'Ma Shan Zheng', serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("麻", WORLD / 2, WORLD / 2);
+  ctx.restore();
+
+  const inView = (x, y, m) => x > x0 - m && x < x1 + m && y > y0 - m && y < y1 + m;
+
+  /* tiles on ground */
+  for (const t of G.tiles){
+    if (!inView(t.x, t.y, 60)) continue;
+    const bobY = Math.sin(t.bob) * 2.5;
+    const pulse = 0.5 + 0.5 * Math.sin(t.bob * 1.4);
+    ctx.save();
+    ctx.globalAlpha = 0.25 + 0.3 * pulse;
+    ctx.strokeStyle = "#e8c15a"; ctx.lineWidth = 2;
+    roundRect(t.x - 21, t.y - 27 + bobY, 42, 54, 8); ctx.stroke();
+    ctx.restore();
+    drawTileFace(t.x - 17, t.y - 23 + bobY, 34, 46, t.id);
+  }
+
+  /* gems */
+  for (const g of G.gems){
+    if (!inView(g.x, g.y, 30)) continue;
+    const s = 5 + Math.sin(g.t) * 1.1;
+    ctx.save();
+    ctx.translate(g.x, g.y); ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = "#3fd08c";
+    ctx.fillRect(-s / 1.6, -s / 1.6, s * 1.25, s * 1.25);
+    ctx.fillStyle = "rgba(255,255,255,.55)";
+    ctx.fillRect(-s / 3.2, -s / 3.2, s * 0.62, s * 0.62);
+    ctx.restore();
+  }
+
+  /* enemies */
+  for (const e of G.enemies){
+    if (!inView(e.x, e.y, 70)) continue;
+    const sq = 1 + Math.sin(e.wob) * 0.05;
+    ctx.save();
+    ctx.translate(e.x, e.y); ctx.scale(sq, 1 / sq);
+    ctx.fillStyle = "rgba(0,0,0,.3)";
+    ctx.beginPath(); ctx.ellipse(0, e.r * 0.85, e.r * 0.9, e.r * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+    let body = "#a83c34";
+    if (e.kind === "fast") body = "#cf7a2e";
+    if (e.kind === "tank") body = "#5d6d75";
+    if (e.kind === "elite") body = "#8c2f28";
+    ctx.fillStyle = e.hitT > 0 ? "#f6e8d8" : body;
+    ctx.beginPath(); ctx.arc(0, 0, e.r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 2; ctx.stroke();
+    if (e.kind === "elite"){
+      ctx.strokeStyle = "#e8c15a"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, 0, e.r + 4 + Math.sin(e.wob * 0.7) * 1.5, 0, Math.PI * 2); ctx.stroke();
+    }
+    /* eyes */
+    const look = Math.atan2(p.y - e.y, p.x - e.x);
+    const ex = Math.cos(look) * e.r * 0.18, ey = Math.sin(look) * e.r * 0.18;
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(-e.r * 0.34 + ex, -e.r * 0.12 + ey, e.r * 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(e.r * 0.34 + ex, -e.r * 0.12 + ey, e.r * 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#1c1512";
+    ctx.beginPath(); ctx.arc(-e.r * 0.34 + ex * 1.7, -e.r * 0.12 + ey * 1.7, e.r * 0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(e.r * 0.34 + ex * 1.7, -e.r * 0.12 + ey * 1.7, e.r * 0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    if (e.hp < e.maxHp){
+      const w = e.r * 2;
+      ctx.fillStyle = "rgba(0,0,0,.55)";
+      ctx.fillRect(e.x - e.r, e.y - e.r - 10, w, 4.5);
+      ctx.fillStyle = e.kind === "elite" ? "#e8c15a" : "#e05a4e";
+      ctx.fillRect(e.x - e.r, e.y - e.r - 10, w * clamp(e.hp / e.maxHp, 0, 1), 4.5);
+    }
+  }
+
+  /* player */
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.fillStyle = "rgba(0,0,0,.32)";
+  ctx.beginPath(); ctx.ellipse(0, p.r * 0.9, p.r * 0.95, p.r * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+  if (p.hurtCd > 0.3) ctx.globalAlpha = 0.55;
+  ctx.fillStyle = p.color;
+  ctx.beginPath(); ctx.arc(0, 0, p.r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#e8c15a"; ctx.lineWidth = 2.5; ctx.stroke();
+  /* face */
+  ctx.fillStyle = "#f6e3c2";
+  ctx.beginPath(); ctx.arc(0, -2, p.r * 0.58, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#26221a";
+  const fx = p.face * 2.5;
+  ctx.beginPath(); ctx.arc(-5 + fx, -4, 2.1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5 + fx, -4, 2.1, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#26221a"; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(fx, 1, 4.5, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+  /* mini tile on head */
+  ctx.rotate(-0.12);
+  drawTileFace(-8, -p.r - 13, 16, 21, 33); // 中 on the head
+  ctx.restore();
+
+  /* projectiles */
+  for (const pr of G.projs){
+    if (pr.heavy){
+      ctx.save();
+      ctx.translate(pr.x, pr.y); ctx.rotate(pr.rot);
+      drawTileFace(-13, -17, 26, 34, pr.tileId != null ? pr.tileId : 0);
+      ctx.restore();
+    } else if (pr.kind === "boomerang"){
+      ctx.save();
+      ctx.translate(pr.x, pr.y); ctx.rotate(pr.rot * 1.6);
+      drawTileFace(-11, -15, 22, 30, pr.tileId != null ? pr.tileId : 20);
+      ctx.restore();
+    } else if (pr.kind === "homing"){
+      ctx.save();
+      ctx.translate(pr.x, pr.y); ctx.rotate(Math.atan2(pr.vy, pr.vx));
+      ctx.fillStyle = "#e05a4e";
+      roundRect(-10, -5, 17, 10, 4); ctx.fill();
+      ctx.fillStyle = "#e8c15a";
+      ctx.beginPath(); ctx.moveTo(7, -5); ctx.lineTo(14, 0); ctx.lineTo(7, 5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#ff9d5c";
+      ctx.beginPath(); ctx.arc(-11, 0, 3 + Math.sin(pr.rot * 3) * 1.2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.translate(pr.x, pr.y); ctx.rotate(pr.rot);
+      ctx.fillStyle = "#ffe9a8";
+      roundRect(-6, -6, 12, 12, 3); ctx.fill();
+      ctx.strokeStyle = "#b98c2e"; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  /* 环身牌阵 */
+  {
+    const orbIds = [33, 24, 15, 6, 31, 20];
+    orbitPositions().forEach((o, i) => {
+      ctx.save();
+      ctx.translate(o.x, o.y); ctx.rotate(Math.sin(G.orbitAngle * 2 + i) * 0.35);
+      drawTileFace(-11, -15, 22, 30, orbIds[i % orbIds.length]);
+      ctx.restore();
+    });
+  }
+  /* 闪电链 */
+  for (const z of G.zaps){
+    ctx.save();
+    ctx.globalAlpha = 1 - z.t / 0.18;
+    ctx.strokeStyle = "#ffe95c"; ctx.lineWidth = 2.5;
+    ctx.shadowColor = "#ffe95c"; ctx.shadowBlur = 8;
+    ctx.beginPath();
+    for (let s = 0; s < z.pts.length - 1; s++){
+      const ax = z.pts[s][0], ay = z.pts[s][1], bx = z.pts[s + 1][0], by = z.pts[s + 1][1];
+      const seg = 4;
+      for (let k = 0; k <= seg; k++){
+        const t = k / seg;
+        const jx = (k === 0 || k === seg) ? 0 : rand(-7, 7);
+        const jy = (k === 0 || k === seg) ? 0 : rand(-7, 7);
+        const x = ax + (bx - ax) * t + jx, y = ay + (by - ay) * t + jy;
+        if (s === 0 && k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  /* 爆炸圈 */
+  for (const rg of G.rings){
+    ctx.save();
+    ctx.globalAlpha = 1 - rg.t / 0.3;
+    ctx.strokeStyle = "#ff9d5c"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r * (0.35 + 0.65 * (rg.t / 0.3)), 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
+  /* particles */
+  for (const pt of G.parts){
+    ctx.globalAlpha = 1 - pt.t / pt.life;
+    ctx.fillStyle = pt.color;
+    ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  /* floating texts */
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const tx of G.texts){
+    ctx.globalAlpha = 1 - tx.t / 0.85;
+    ctx.font = "700 " + tx.size + "px 'Noto Sans SC', sans-serif";
+    ctx.strokeStyle = "rgba(0,0,0,.65)"; ctx.lineWidth = 3;
+    ctx.strokeText(tx.s, tx.x, tx.y);
+    ctx.fillStyle = tx.color;
+    ctx.fillText(tx.s, tx.x, tx.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  drawEdgeArrows(camX, camY, offX, offY);
+  drawMinimap();
+}
+
+/* arrows at screen edge pointing to off-screen tiles */
+function drawEdgeArrows(camX, camY, offX, offY){
+  const p = G.player;
+  const sorted = G.tiles.slice().sort((a, b) => dist2(a.x, a.y, p.x, p.y) - dist2(b.x, b.y, p.x, p.y)).slice(0, 6);
+  ctx.save();
+  for (const t of sorted){
+    const sx = t.x - camX + offX, sy = t.y - camY + offY;
+    if (sx > -20 && sx < VW + 20 && sy > -20 && sy < VH + 20) continue;
+    const cx = clamp(sx, 26, VW - 26), cy = clamp(sy, 44, VH - 44);
+    const a = Math.atan2(sy - cy, sx - cx);
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(a);
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "#e8c15a";
+    ctx.beginPath();
+    ctx.moveTo(11, 0); ctx.lineTo(-7, -7); ctx.lineTo(-3, 0); ctx.lineTo(-7, 7);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawMinimap(){
+  const S = 108, pad = 12;
+  const x = VW - S - pad, y = 10;
+  if (VW < 340) return; // skip on very small stages to save space
+  ctx.save();
+  ctx.globalAlpha = 0.88;
+  ctx.fillStyle = "rgba(5,20,15,.8)";
+  roundRect(x, y, S, S, 6); ctx.fill();
+  ctx.strokeStyle = "rgba(232,193,90,.4)"; ctx.lineWidth = 1; ctx.stroke();
+  const k = S / WORLD;
+  ctx.fillStyle = "#e8c15a";
+  for (const t of G.tiles){
+    ctx.fillRect(x + t.x * k - 1, y + t.y * k - 1, 2.4, 2.4);
+  }
+  ctx.fillStyle = "#e05a4e";
+  for (const e of G.enemies){
+    if (e.kind === "elite") ctx.fillRect(x + e.x * k - 1.6, y + e.y * k - 1.6, 3.4, 3.4);
+  }
+  const p = G.player;
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.arc(x + p.x * k, y + p.y * k, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#2e7d52"; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.restore();
+}
+
+/* ---------------- HUD / hand UI ---------------- */
+const $ = (id) => document.getElementById(id);
+function fmtTime(s){
+  const m = Math.floor(s / 60), ss = Math.floor(s % 60);
+  return (m < 10 ? "0" : "") + m + ":" + (ss < 10 ? "0" : "") + ss;
+}
+function updateHUD(force){
+  if (!G) return;
+  const p = G.player;
+  $("hpFill").style.width = clamp(p.hp / p.maxHp * 100, 0, 100) + "%";
+  $("hpNum").textContent = Math.ceil(p.hp) + " / " + p.maxHp;
+  $("xpFill").style.width = clamp(G.xp / G.xpNext * 100, 0, 100) + "%";
+  $("xpNum").textContent = "Lv." + G.level;
+  $("lvBadge").textContent = "Lv." + G.level;
+  $("killBadge").textContent = "击破 " + G.kills;
+  const wb = $("weaponBadge");
+  if (wb) wb.textContent = p.weapons.map(w => WEAPONS[w.type].icon + "Lv" + w.lv).join(" ");
+  $("timer").textContent = fmtTime(G.time);
+  updateObjective();
+}
+function usefulTilesOpen(){
+  const counts = countsOf(G.hand);
+  const all = countsOf(G.hand.concat(G.melds.reduce((a, m) => a.concat(m.tiles), [])));
+  const base = effShanten();
+  const out = [];
+  for (let t = 0; t < 34; t++){
+    if (all[t] >= 4) continue;
+    counts[t]++;
+    if (shantenWithMelds(counts, G.melds.length) < base) out.push(t);
+    counts[t]--;
+  }
+  return out;
+}
+function updateObjective(){
+  if (!G) return;
+  const el = $("objective");
+  const n = totalTiles(), tgt = targetTotal();
+  const meldTxt = G.melds.length ? " · 已锁面子 <b>" + G.melds.length + "</b>" : "";
+  if (n < tgt - 3){
+    el.innerHTML = "目标：凑齐 <b>" + tgt + " 张</b>胡牌牌型通关 · 当前手牌 <b>" + n + " / " + tgt + "</b>" + meldTxt;
+    return;
+  }
+  const sh = effShanten();
+  if (n === tgt){
+    el.innerHTML = "手牌已满但还没成型 —— 点手牌右上角 <b>×</b> 打出一张，再去摸牌换张" + meldTxt;
+  } else if (sh === 0){
+    const waits = usefulTilesOpen().map(tileName).join(" ");
+    el.innerHTML = "<span class='tenpai'>听牌！</span> 摸到 <b>" + waits + "</b> 任意一张即胡" + meldTxt;
+  } else {
+    el.innerHTML = "牌型进度：还差 <b>" + sh + "</b> 步成型（" + n + " / " + tgt + " 张）" + meldTxt;
+  }
+}
+function tileEl(id, idx){
+  const f = tileFace(id);
+  const d = document.createElement("div");
+  const meld = G ? findMeldForIndex(idx) : null;
+  d.className = "htile " + f.cls + (meld ? " can-meld meld-" + meld.type : "");
+  if (f.h) d.innerHTML = "<span class='h'>" + f.h + "</span>";
+  else d.innerHTML = "<span class='n'>" + f.n + "</span><span class='s'>" + f.s + "</span>";
+  if (meld){
+    const b = document.createElement("span");
+    b.className = "meld-badge";
+    b.textContent = meld.label;
+    d.appendChild(b);
+  }
+  const x = document.createElement("button");
+  x.className = "tile-x"; x.type = "button"; x.textContent = "×";
+  x.title = "打出 " + tileName(id);
+  x.setAttribute("aria-label", "打出 " + tileName(id));
+  x.addEventListener("click", (e) => { e.stopPropagation(); discardTile(idx); });
+  d.appendChild(x);
+  d.title = tileName(id) + (meld ? "（点击" + meld.label + "，点 × 打出）" : "（点击打出）");
+  d.addEventListener("click", () => onTileClick(idx));
+  return d;
+}
+function meldTileEl(id, small){
+  const f = tileFace(id);
+  const d = document.createElement("div");
+  d.className = "htile " + f.cls + (small ? " mtile" : " meld-win");
+  d.innerHTML = f.h ? "<span class='h'>" + f.h + "</span>" : "<span class='n'>" + f.n + "</span><span class='s'>" + f.s + "</span>";
+  return d;
+}
+function updateHandUI(){
+  const wrap = $("hand");
+  wrap.innerHTML = "";
+  if (!G || G.hand.length === 0){
+    const e = document.createElement("div");
+    e.id = "handEmpty";
+    e.textContent = "在地图上走动，踩到麻将牌即可摸牌";
+    wrap.appendChild(e);
+  } else {
+    G.hand.forEach((id, i) => wrap.appendChild(tileEl(id, i)));
+  }
+  const mwrap = $("melds");
+  mwrap.innerHTML = "";
+  if (G){
+    G.melds.forEach((m, mi) => {
+      const g = document.createElement("div");
+      const canKakan = m.type === "pon" && G.hand.includes(m.tiles[0]);
+      g.className = "meld-group" + (m.type === "kan" ? " kan" : "") + (canKakan ? " can-kakan" : "");
+      const lb = document.createElement("span");
+      lb.className = "mlabel";
+      lb.textContent = m.type === "kan" ? "杠" : (m.type === "pon" ? "碰" : "吃");
+      g.appendChild(lb);
+      m.tiles.forEach((id) => g.appendChild(meldTileEl(id, true)));
+      if (canKakan){
+        const kb = document.createElement("span");
+        kb.className = "kakan-btn";
+        kb.textContent = "加杠";
+        g.appendChild(kb);
+        g.title = "手里有第 4 张" + tileName(m.tiles[0]) + "，点击加杠";
+        g.addEventListener("click", () => declareKakanFromMeld(mi));
+      }
+      mwrap.appendChild(g);
+    });
+  }
+  const hint = $("handHint");
+  if (!G) return;
+  const n = totalTiles(), tgt = targetTotal();
+  let s = "手牌 <b>" + n + " / " + tgt + "</b>";
+  if (G.melds.length) s += " · 面子 " + G.melds.length;
+  if (n >= tgt - 3){
+    const sh = effShanten();
+    if (n === tgt - 1 && sh === 0) s += " · <b>听牌！</b>";
+    else if (n === tgt) s += " · 已满，点 × 打出换张";
+    else s += " · 向听 " + sh;
+  }
+  if (G.wall.length === 0 && G.tiles.length === 0 && n < tgt) s += " · 牌已摸完";
+  s += "<br>带标记的牌点一下声明吃 / 碰 / 杠 / 加杠 · 点 × 打出";
+  hint.innerHTML = s;
+  updateObjective();
+}
+
+/* ---------------- Level up ---------------- */
+/* 升级池：动态生成——新武器（权重 3）、武器升级与机制强化（权重 2）、纯数值（权重 1） */
+function upgradePool(){
+  const p = G.player;
+  const pool = [];
+  const owned = (t) => p.weapons.find(w => w.type === t);
+  if (p.weapons.length < MAX_WEAPONS){
+    for (const t of Object.keys(WEAPONS)){
+      if (owned(t)) continue;
+      pool.push({ wgt: 3, icon: WEAPONS[t].icon, name: WEAPONS[t].name, desc: WEAPONS[t].desc,
+        apply(){ p.weapons.push({ type: t, lv: 1, cd: 0 }); toast("新武器：" + WEAPONS[t].name + "！", 2000); } });
+    }
+  }
+  for (const w of p.weapons){
+    if (w.lv >= 5) continue;
+    const def = WEAPONS[w.type];
+    pool.push({ wgt: 2, icon: def.icon, name: def.name + " → Lv." + (w.lv + 1), desc: def.upDesc,
+      apply(){ w.lv++; } });
+  }
+  /* 机制强化：改变打法，不只是加数值 */
+  if (p.explodeR === 0) pool.push({ wgt: 2, icon: "💥", name: "爆裂牌", desc: "机制：所有命中都会爆炸，对目标周围的敌人造成 60% 伤害。", apply(){ p.explodeR = 72; } });
+  else if (p.explodeR < 140) pool.push({ wgt: 1, icon: "💥", name: "爆裂牌 · 扩", desc: "机制：爆炸范围 +34，炸得更开。", apply(){ p.explodeR += 34; } });
+  if (p.bounce < 3) pool.push({ wgt: 2, icon: "↪️", name: "弹射牌", desc: "机制：投射物命中后弹向附近的另一个敌人（当前可弹 " + p.bounce + " 次）。", apply(){ p.bounce++; } });
+  if (p.pierce < 3) pool.push({ wgt: 2, icon: "🏹", name: "穿透牌", desc: "机制：投射物可多穿透 1 个敌人（当前 " + p.pierce + "）。", apply(){ p.pierce++; } });
+  if (p.crit < 0.45) pool.push({ wgt: 2, icon: "🔍", name: "暴击镜", desc: "机制：暴击率 +15%（当前 " + Math.round(p.crit * 100) + "%），暴击造成双倍伤害。", apply(){ p.crit += 0.15; } });
+  if (p.frost === 0) pool.push({ wgt: 2, icon: "❄️", name: "寒冰牌", desc: "机制：命中使敌人减速 40%，持续 1.2 秒——风筝怪海更安全。", apply(){ p.frost = 0.4; } });
+  else if (p.frost < 0.6) pool.push({ wgt: 1, icon: "❄️", name: "寒冰牌 · 深", desc: "机制：减速效果再 +12%。", apply(){ p.frost += 0.12; } });
+  if (p.lifesteal < 1.6) pool.push({ wgt: 1, icon: "🩸", name: "吸血咒", desc: "机制：每击破一个敌人回复 0.4 点生命。", apply(){ p.lifesteal += 0.4; } });
+  /* 数值强化 */
+  pool.push({ wgt: 1, icon: "🀄", name: "连珠炮", desc: "竹叶镖投射物 +1，同时多打一发。", apply(){ p.projCount++; } });
+  pool.push({ wgt: 1, icon: "💨", name: "疾风手", desc: "所有武器攻击速度 +18%。", apply(){ p.fireRate *= 1.18; } });
+  pool.push({ wgt: 1, icon: "🎯", name: "重牌劲", desc: "所有武器伤害 +25%。", apply(){ p.damage *= 1.25; } });
+  pool.push({ wgt: 1, icon: "👟", name: "飞毛腿", desc: "移动速度 +10%。", apply(){ p.speed *= 1.10; } });
+  pool.push({ wgt: 1, icon: "🧲", name: "引牌磁石", desc: "拾取范围 +45%，经验和牌都吸得更远。", apply(){ p.magnet *= 1.45; } });
+  pool.push({ wgt: 1, icon: "💪", name: "铁布衫", desc: "生命上限 +25 并回复 25。", apply(){ p.maxHp += 25; p.hp = Math.min(p.maxHp, p.hp + 25); } });
+  pool.push({ wgt: 1, icon: "🌿", name: "回春", desc: "每秒回复 +0.7 点生命，并立即回复 30。", apply(){ p.regen += 0.7; p.hp = Math.min(p.maxHp, p.hp + 30); } });
+  pool.push({ wgt: 1, icon: "🚀", name: "牌速拉满", desc: "投射物飞行速度 +22%，伤害 +8%。", apply(){ p.projSpeed *= 1.22; p.damage *= 1.08; } });
+  return pool;
+}
+function openLevelUp(){
+  state = "levelup";
+  if (typeof joyReset === "function") joyReset();
+  sfx.level();
+  const box = $("choices");
+  box.innerHTML = "";
+  const pool = upgradePool();
+  const picks = [];
+  while (picks.length < 3 && pool.length){
+    let total = 0;
+    for (const u of pool) total += u.wgt;
+    let r = Math.random() * total, idx = 0;
+    while (idx < pool.length - 1 && (r -= pool[idx].wgt) > 0) idx++;
+    picks.push(pool.splice(idx, 1)[0]);
+  }
+  for (const up of picks){
+    const b = document.createElement("button");
+    b.className = "choice"; b.type = "button";
+    b.innerHTML = "<div class='ic'>" + up.icon + "</div><div class='nm'>" + up.name + "</div><div class='ds'>" + up.desc + "</div>";
+    b.addEventListener("click", () => {
+      up.apply();
+      $("levelOverlay").hidden = true;
+      state = "playing";
+      updateHUD(true);
+    });
+    box.appendChild(b);
+  }
+  $("levelOverlay").hidden = false;
+}
+
+/* ---------------- Flow ---------------- */
+function onWin(){
+  state = "won";
+  if (typeof joyReset === "function") joyReset();
+  sfx.win();
+  burst(G.player.x, G.player.y, "#e8c15a", 60);
+  $("winTime").textContent = fmtTime(G.time);
+  $("winLv").textContent = G.level;
+  $("winKills").textContent = G.kills;
+  const wh = $("winHand");
+  wh.innerHTML = "";
+  G.hand.forEach((id) => { wh.appendChild(meldTileEl(id, false)); });
+  G.melds.forEach((m) => { m.tiles.forEach((id) => wh.appendChild(meldTileEl(id, false))); });
+  let yak = "四面子一雀头";
+  if (G.melds.length === 0 && countsOf(G.hand).filter(c => c >= 2).length === 7) yak = "七对子";
+  else if (kanCount() > 0) yak += "（含杠 ×" + kanCount() + "）";
+  else if (G.melds.length > 0) yak += "（含声明面子 ×" + G.melds.length + "）";
+  $("winText").textContent = "你凑齐了一套胡牌牌型（" + yak + "），成功破局！";
+  $("winOverlay").hidden = false;
+}
+function onGameOver(){
+  state = "over";
+  if (typeof joyReset === "function") joyReset();
+  sfx.hurt();
+  burst(G.player.x, G.player.y, "#e05a4e", 40);
+  $("overTime").textContent = fmtTime(G.time);
+  $("overLv").textContent = G.level;
+  $("overKills").textContent = G.kills;
+  $("overTiles").textContent = totalTiles() + " / " + targetTotal();
+  if (totalTiles() >= targetTotal() - 2){
+    const sh = effShanten();
+    $("overText").textContent = sh === 0 && totalTiles() === targetTotal() - 1 ? "就差最后一张听牌，太可惜了。" : "手牌攒到 " + totalTiles() + " 张，向听 " + Math.max(sh, 0) + "，差一点就成了。";
+  } else {
+    $("overText").textContent = "手牌才攒到 " + totalTiles() + " 张——下局先绕着牌走，别贪经验。";
+  }
+  $("overOverlay").hidden = false;
+}
+function togglePause(){
+  if (state === "playing"){
+    if (typeof joyReset === "function") joyReset();
+    state = "paused";
+    $("pauseOverlay").hidden = false;
+  } else if (state === "paused"){
+    state = "playing";
+    $("pauseOverlay").hidden = true;
+  }
+}
+function startGame(){
+  newGame();
+  state = "playing";
+  $("startOverlay").hidden = true;
+  $("winOverlay").hidden = true;
+  $("overOverlay").hidden = true;
+  $("levelOverlay").hidden = true;
+  $("pauseOverlay").hidden = true;
+  toast("走过去摸牌，凑齐 14 张胡牌！", 2400);
+}
+/* 角色选择卡（开始界面） */
+function buildCharCards(){
+  const row = $("charRow");
+  if (!row) return;
+  row.innerHTML = "";
+  CHARS.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "char-card" + (i === selectedChar ? " sel" : "");
+    b.innerHTML = "<div class='avatar' style='background:" + c.color + "'>" + c.name.charAt(0) + "</div>" +
+      "<div class='nm'>" + c.name + "</div><div class='ti'>" + c.title + "</div><div class='ds'>" + c.desc + "</div>";
+    b.addEventListener("click", () => { selectedChar = i; sfx.gem(); buildCharCards(); });
+    row.appendChild(b);
+  });
+}
+buildCharCards();
+$("startBtn").addEventListener("click", startGame);
+$("winRestart").addEventListener("click", startGame);
+$("overRestart").addEventListener("click", startGame);
+$("resumeBtn").addEventListener("click", togglePause);
+$("pauseBtn").addEventListener("click", () => { if (state === "playing" || state === "paused") togglePause(); });
+$("soundBtn").addEventListener("click", function(){
+  soundOn = !soundOn;
+  this.textContent = soundOn ? "音效 开" : "音效 关";
+  if (soundOn) sfx.gem();
+});
+
+/* ---------------- Main loop ---------------- */
+let lastT = 0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt = Math.min((ts - lastT) / 1000 || 0, 0.05);
+  lastT = ts;
+  // 布局尺寸变化（字体加载、工具栏收起等）时让方形地图重新适配
+  const want = Math.floor(Math.min(stageWrapEl.clientWidth - 12, stageWrapEl.clientHeight - 12));
+  if (Math.abs(want - VW) > 2) resize();
+  if (state === "playing") update(dt);
+  draw();
+}
+newGame();
+state = "menu";
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
